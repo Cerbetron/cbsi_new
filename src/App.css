@@ -1,0 +1,89 @@
+@import "tailwindcss";
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE 10+ */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+.checkbox-wrapper-33 .checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: row-reverse; /* Move icon to right */
+}
+.checkbox-wrapper-33 .checkbox__symbol {
+  margin-left: calc(var(--s-small) * 0.7); /* Add margin to left */
+  margin-right: 0; /* Remove right margin */
+}
+
+/* Ensure all buttons and interactive elements have pointer cursor */
+button, 
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+/* Ensure table rows show pointer on hover */
+tr.resource-row {
+  cursor: pointer;
+}
+
+/* Ensure all clickable elements in the grid have pointer cursor */
+.resource-row button,
+.resource-row [role="button"] {
+  cursor: pointer !important;
+}
+
+/* Additional interactive elements */
+input[type="checkbox"],
+input[type="radio"],
+label,
+select,
+a,
+.clickable {
+  cursor: pointer;
+}
+
+/* Dropdown items */
+li[role="option"],
+.dropdown-item {
+  cursor: pointer;
+}
+
+/* Ensure SVG buttons and icons within buttons are clickable */
+button svg,
+[role="button"] svg {
+  pointer-events: none; /* Prevents SVG from blocking button clicks */
+}
+
+/* Hover states for better UX */
+button:hover:not(:disabled),
+[role="button"]:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+button:disabled,
+[role="button"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #015AB8;
+  outline-offset: 2px;
+}
+
+/* Interactive list items */
+.interactive-list-item:hover {
+  background-color: rgba(1, 90, 184, 0.05);
+}
+
+/* Ensure print buttons have proper cursor */
+.print-button {
+  cursor: pointer !important;
+}
