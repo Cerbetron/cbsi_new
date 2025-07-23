@@ -2,25 +2,53 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FaSearch } from 'react-icons/fa';
 import { IoMdClose } from 'react-icons/io';
 
+// Cookie utilities
+const setCookie = (name, value, days = 30) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+  document.cookie = `${name}=${JSON.stringify(value)};expires=${expires.toUTCString()};path=/`;
+};
+
+const getCookie = (name) => {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) {
+      try {
+        return JSON.parse(c.substring(nameEQ.length, c.length));
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+  return null;
+};
+
+const deleteCookie = (name) => {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+};
+
 // Reusable dropdown arrow component
 const DropdownArrow = ({ isOpen, size = "16" }) => (
   <div className={`transform transition-transform duration-200 ${isOpen ? '' : 'rotate-180'}`}>
-    <svg 
-      width={size} 
-      height={size === "16" ? "8" : size === "32" ? "32" : size === "14" ? "10" : "16"} 
-      viewBox={size === "32" ? "0 0 32 32" : size === "14" ? "0 0 24 16" : "0 0 16 8"} 
-      fill="none" 
+    <svg
+      width={size}
+      height={size === "16" ? "8" : size === "32" ? "32" : size === "14" ? "10" : "16"}
+      viewBox={size === "32" ? "0 0 32 32" : size === "14" ? "0 0 24 16" : "0 0 16 8"}
+      fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       {size === "32" ? (
         <>
-          <path d="M21.7852 19H10.1955C9.13619 19 8.5754 17.7102 9.38544 16.9731L15.2426 11.3225C15.7411 10.8925 16.4888 10.8925 16.925 11.3225L22.6576 16.9731C23.4053 17.7102 22.8445 19 21.7852 19Z" fill="#015AB8"/>
-          <path d="M16 31C7.73077 31 1 24.2692 1 16C1 7.73077 7.73077 1 16 1C24.2692 1 31 7.73077 31 16C31 24.2692 24.2692 31 16 31ZM16 1.76923C8.15385 1.76923 1.76923 8.15385 1.76923 16C1.76923 23.8462 8.15385 30.2308 16 30.2308C23.8462 30.2308 30.2308 23.8462 30.2308 16C30.2308 8.15385 23.8462 1.76923 16 1.76923Z" fill="#015AB8"/>
+          <path d="M21.7852 19H10.1955C9.13619 19 8.5754 17.7102 9.38544 16.9731L15.2426 11.3225C15.7411 10.8925 16.4888 10.8925 16.925 11.3225L22.6576 16.9731C23.4053 17.7102 22.8445 19 21.7852 19Z" fill="#015AB8" />
+          <path d="M16 31C7.73077 31 1 24.2692 1 16C1 7.73077 7.73077 1 16 1C24.2692 1 31 7.73077 31 16C31 24.2692 24.2692 31 16 31ZM16 1.76923C8.15385 1.76923 1.76923 8.15385 1.76923 16C1.76923 23.8462 8.15385 30.2308 16 30.2308C23.8462 30.2308 30.2308 23.8462 30.2308 16C30.2308 8.15385 23.8462 1.76923 16 1.76923Z" fill="#015AB8" />
         </>
       ) : size === "14" ? (
-        <polygon points="12,14 4,6 20,6" fill="#3B4A9F"/>
+        <polygon points="12,14 4,6 20,6" fill="#3B4A9F" />
       ) : (
-        <path d="M0 7.38086L8 -0.000279427L16 7.38086H0Z" fill="#3F5590"/>
+        <path d="M0 7.38086L8 -0.000279427L16 7.38086H0Z" fill="#3F5590" />
       )}
     </svg>
   </div>
@@ -29,7 +57,7 @@ const DropdownArrow = ({ isOpen, size = "16" }) => (
 // Example options
 const countyOptions = ["County", "Alameda", "Los Angeles", "Sacramento", "San Diego"];
 const insuranceOptions = [
-  "Insurance",                             
+  "Insurance",
   "Private",
   "MediCal Managed Care",
   "MediCal FFS",
@@ -138,19 +166,84 @@ const SearchPanel = ({ onSearch }) => {
   const searchInputRef = useRef();
 
   // Decision Tree state
-  const [decisionTreeOpen, setDecisionTreeOpen] = useState(true); // Open by default
+  const [decisionTreeOpen, setDecisionTreeOpen] = useState(false);
   const [expandedQuestions, setExpandedQuestions] = useState({});
   const [decisionTreeAnswers, setDecisionTreeAnswers] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState({ FUNNEL: true }); // Open FUNNEL category by default
-  const [selectedFunnel, setSelectedFunnel] = useState(2); // Set Funnel 1 as default
-  
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [selectedFunnel, setSelectedFunnel] = useState(null); // Add state for funnel selection
+
   // Dialog state for "Other" option
   const [showOtherDialog, setShowOtherDialog] = useState(false);
   const [currentQuestionId, setCurrentQuestionId] = useState(null);
   const [otherInputValue, setOtherInputValue] = useState('');
-  
+
   // Save My Preference state
   const [isPreferenceSaved, setIsPreferenceSaved] = useState(false);
+
+  // Load preferences from cookies on component mount
+  useEffect(() => {
+    const savedPreferences = getCookie('searchPanelPreferences');
+    if (savedPreferences) {
+      // Load filter preferences
+      if (savedPreferences.selectedFilter !== undefined) {
+        setSelectedFilter(savedPreferences.selectedFilter);
+      }
+      if (savedPreferences.searchInput) {
+        setSearchInput(savedPreferences.searchInput);
+      }
+      if (savedPreferences.county) {
+        setCounty(savedPreferences.county);
+      }
+      if (savedPreferences.insurance) {
+        setInsurance(savedPreferences.insurance);
+      }
+      if (savedPreferences.cw) {
+        setCw(savedPreferences.cw);
+      }
+      
+      // Load decision tree preferences
+      if (savedPreferences.decisionTreeOpen !== undefined) {
+        setDecisionTreeOpen(savedPreferences.decisionTreeOpen);
+      }
+      if (savedPreferences.expandedQuestions) {
+        setExpandedQuestions(savedPreferences.expandedQuestions);
+      }
+      if (savedPreferences.decisionTreeAnswers) {
+        setDecisionTreeAnswers(savedPreferences.decisionTreeAnswers);
+      }
+      if (savedPreferences.expandedCategories) {
+        setExpandedCategories(savedPreferences.expandedCategories);
+      }
+      if (savedPreferences.selectedFunnel !== undefined) {
+        setSelectedFunnel(savedPreferences.selectedFunnel);
+      }
+      
+      // Set preference saved state
+      setIsPreferenceSaved(true);
+    }
+  }, []);
+
+  // Save preferences to cookies
+  const savePreferencesToCookies = () => {
+    const preferences = {
+      selectedFilter,
+      searchInput,
+      county,
+      insurance,
+      cw,
+      decisionTreeOpen,
+      expandedQuestions,
+      decisionTreeAnswers,
+      expandedCategories,
+      selectedFunnel
+    };
+    setCookie('searchPanelPreferences', preferences);
+  };
+
+  // Clear preferences from cookies
+  const clearPreferencesFromCookies = () => {
+    deleteCookie('searchPanelPreferences');
+  };
 
   // Decision Tree data
   const decisionTreeQuestions = [
@@ -291,7 +384,7 @@ const SearchPanel = ({ onSearch }) => {
         const currentAnswer = prev[questionId];
         
         // If the same option is clicked again, unselect it
-        if (currentAnswer === option) {
+        if (currentAnswer === option || (typeof currentAnswer === 'string' && currentAnswer.startsWith('Other: ') && option === 'Other')) {
           const newAnswers = { ...prev };
           delete newAnswers[questionId]; // Remove the answer completely
           return newAnswers;
@@ -306,9 +399,7 @@ const SearchPanel = ({ onSearch }) => {
     } catch (error) {
       console.error('Error in handleAnswerSelect:', error);
     }
-  };
-
-  // Handle funnel selection
+  };  // Handle funnel selection
   const handleFunnelSelect = (funnelNumber) => {
     setSelectedFunnel(selectedFunnel === funnelNumber ? null : funnelNumber);
   };
@@ -320,6 +411,13 @@ const SearchPanel = ({ onSearch }) => {
         ...prev,
         [currentQuestionId]: `Other: ${otherInputValue.trim()}`
       }));
+    } else {
+      // If no value entered, just clear the selection
+      setDecisionTreeAnswers(prev => {
+        const newAnswers = { ...prev };
+        delete newAnswers[currentQuestionId];
+        return newAnswers;
+      });
     }
     setCurrentQuestionId(null);
     setOtherInputValue('');
@@ -327,13 +425,27 @@ const SearchPanel = ({ onSearch }) => {
 
   // Handle "Other" dialog cancel
   const handleOtherCancel = () => {
+    setDecisionTreeAnswers(prev => {
+      const newAnswers = { ...prev };
+      delete newAnswers[currentQuestionId];
+      return newAnswers;
+    });
     setCurrentQuestionId(null);
     setOtherInputValue('');
   };
 
   // Handle Save My Preference toggle
   const handleSavePreferenceToggle = () => {
-    setIsPreferenceSaved(!isPreferenceSaved);
+    const newPreferenceSavedState = !isPreferenceSaved;
+    setIsPreferenceSaved(newPreferenceSavedState);
+    
+    if (newPreferenceSavedState) {
+      // Save preferences to cookies
+      savePreferencesToCookies();
+    } else {
+      // Clear preferences from cookies
+      clearPreferencesFromCookies();
+    }
   };
 
   // Multi-select dropdown logic
@@ -367,6 +479,13 @@ const SearchPanel = ({ onSearch }) => {
     // eslint-disable-next-line
   }, [searchInput, county, insurance, cw, selectedFilter]);
 
+  // Auto-save preferences whenever they change (if user has enabled saving)
+  useEffect(() => {
+    if (isPreferenceSaved) {
+      savePreferencesToCookies();
+    }
+  }, [searchInput, county, insurance, cw, selectedFilter, decisionTreeOpen, expandedQuestions, decisionTreeAnswers, expandedCategories, selectedFunnel, isPreferenceSaved]);
+
   // Clear all filters and search
   const clearAll = () => {
     setSelectedFilter(0);
@@ -374,13 +493,16 @@ const SearchPanel = ({ onSearch }) => {
     setCounty([]);
     setInsurance([]);
     setCw([]);
-    // Reset Decision Tree answers
     setDecisionTreeAnswers({});
     setExpandedQuestions({});
+    setExpandedCategories({});
     setSelectedFunnel(null);
-    setIsPreferenceSaved(false);
-    setOtherInputValue('');
-    setCurrentQuestionId(null);
+    setDecisionTreeOpen(false);
+    
+    // If preferences are saved, update the cookies with cleared state
+    if (isPreferenceSaved) {
+      savePreferencesToCookies();
+    }
   };
 
   // Multi-select dropdown component
@@ -515,7 +637,7 @@ const SearchPanel = ({ onSearch }) => {
       e.preventDefault();
     }
   };
-  
+
   const partnerFullNames = {
     TAH: "Tribally Approved Home (TAH)",
     RFA: "Resource Family Approval (RFA)",
@@ -528,13 +650,13 @@ const SearchPanel = ({ onSearch }) => {
   const DecisionTree = () => (
     <div className="w-full  mb-4">
       {/* Decision Tree Header */}
-      <div 
+      <div
         className="flex items-center justify-center p-4 cursor-pointer bg-[#FFF8EA] relative"
         onClick={toggleDecisionTree}
       >
-        <h3 
-          className="text-[#333]" 
-          style={{ 
+        <h3
+          className="text-[#333]"
+          style={{
             fontFamily: 'Open Sans, sans-serif',
             fontWeight: 600,
             fontSize: '20px',
@@ -560,14 +682,14 @@ const SearchPanel = ({ onSearch }) => {
                 {category === "DEMOGRAPHIC" ? (
                   <>
                     {/* Category Header */}
-                    <div 
+                    <div
                       className="flex items-center justify-between p-4 cursor-pointer bg-[#E2E4FB]"
                       onClick={() => toggleCategory(category)}
                     >
                       <div className="flex-1">
-                        <span 
-                          className="text-[#333]" 
-                          style={{ 
+                        <span
+                          className="text-[#333]"
+                          style={{
                             fontFamily: 'Open Sans, sans-serif',
                             fontWeight: 400,
                             fontSize: '20px',
@@ -592,37 +714,37 @@ const SearchPanel = ({ onSearch }) => {
                           .map((question) => (
                             <div key={question.id} className="bg-[#F5F5F5] p-4">
                               {/* Question Header with Dropdown Arrow */}
-                              <div 
+                              <div
                                 className="flex items-center justify-between cursor-pointer w-full"
                                 onClick={() => toggleQuestion(question.id)}
                               >
                                 <div className="flex-1">
                                   <p className="text-[#333] font-medium"
-                                     style={{
-                                       fontFamily: 'Open Sans, sans-serif',
-                                       fontWeight: 400,
-                                       fontSize: '18px',
-                                       lineHeight: '114.99999999999999%',
-                                       letterSpacing: '1%'
-                                     }}>
+                                    style={{
+                                      fontFamily: 'Open Sans, sans-serif',
+                                      fontWeight: 400,
+                                      fontSize: '18px',
+                                      lineHeight: '114.99999999999999%',
+                                      letterSpacing: '1%'
+                                    }}>
                                     {question.question}
                                   </p>
                                 </div>
                                 <div className="ml-4 flex-shrink-0">
                                   <div className={`transform transition-transform duration-200 ${expandedQuestions[question.id] ? 'rotate-180' : ''}`}>
-                                    <svg 
-                                      width="10" 
-                                      height="10" 
-                                      viewBox="0 0 24 16" 
-                                      fill="none" 
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 16"
+                                      fill="none"
                                       xmlns="http://www.w3.org/2000/svg"
                                     >
-                                      <polygon points="12,14 4,6 20,6" fill="#3B4A9F"/>
+                                      <polygon points="12,14 4,6 20,6" fill="#3B4A9F" />
                                     </svg>
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {/* Options - Only show when question is expanded */}
                               {expandedQuestions[question.id] && (
                                 <div className="mt-4">
@@ -634,7 +756,7 @@ const SearchPanel = ({ onSearch }) => {
                                             type="radio"
                                             id={`q${question.id}-option${optionIndex}`}
                                             name={`question-${question.id}`}
-                                            checked={decisionTreeAnswers[question.id] === option}
+                                            checked={decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other')}
                                             onChange={(e) => {
                                               if (e.target.checked) {
                                                 handleAnswerSelect(question.id, option);
@@ -644,15 +766,15 @@ const SearchPanel = ({ onSearch }) => {
                                           />
                                           <div
                                             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                              ${decisionTreeAnswers[question.id] === option 
-                                                ? 'border-[#D14B3A] bg-white' 
+                                              ${(decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other'))
+                                                ? 'border-[#D14B3A] bg-white'
                                                 : 'border-gray-400 bg-white hover:border-gray-500'
                                               }`}
                                             onClick={() => handleAnswerSelect(question.id, option)}
                                           >
                                             <div className={`w-2.5 h-2.5 rounded-full
-                                              ${decisionTreeAnswers[question.id] === option 
-                                                ? 'bg-[#D14B3A]' 
+                                              ${(decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other'))
+                                                ? 'bg-[#D14B3A]'
                                                 : 'bg-gray-400'
                                               }`}>
                                             </div>
@@ -660,7 +782,7 @@ const SearchPanel = ({ onSearch }) => {
                                         </div>
                                         <label
                                           htmlFor={`q${question.id}-option${optionIndex}`}
-                                          className="text-[#333] cursor-pointer"
+                                          className="text-[#333] cursor-pointer mr-2"
                                           style={{
                                             fontFamily: 'Open Sans, sans-serif',
                                             fontWeight: 400,
@@ -672,28 +794,35 @@ const SearchPanel = ({ onSearch }) => {
                                         >
                                           {option}
                                         </label>
+                                        
+                                        {/* Inline input for "Other" option */}
+                                        {option === "Other" && currentQuestionId === question.id && (
+                                          <input
+                                            type="text"
+                                            placeholder="Please specify..."
+                                            value={otherInputValue}
+                                            onChange={(e) => setOtherInputValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                handleOtherSubmit();
+                                              } else if (e.key === 'Escape') {
+                                                handleOtherCancel();
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              if (otherInputValue.trim()) {
+                                                handleOtherSubmit();
+                                              } else {
+                                                handleOtherCancel();
+                                              }
+                                            }}
+                                            className="ml-2 px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#D14B3A] w-48"
+                                            autoFocus
+                                          />
+                                        )}
                                       </div>
                                     ))}
                                   </div>
-                                  
-                                  {/* Show text input for "Other" option */}
-                                  {question.options.includes("Other") && decisionTreeAnswers[question.id] === "Other" && (
-                                    <div className="mt-3">
-                                      <input
-                                        type="text"
-                                        placeholder="Please specify..."
-                                        value={otherInputValue}
-                                        onChange={(e) => setOtherInputValue(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            handleOtherSubmit();
-                                          }
-                                        }}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#D14B3A]"
-                                        autoFocus
-                                      />
-                                    </div>
-                                  )}
                                 </div>
                               )}
                             </div>
@@ -705,14 +834,14 @@ const SearchPanel = ({ onSearch }) => {
                   // FUNNEL Category with two partitions
                   <>
                     {/* Category Header */}
-                    <div 
+                    <div
                       className="flex items-center justify-between p-4 cursor-pointer bg-[#E2E4FB]"
                       onClick={() => toggleCategory(category)}
                     >
                       <div className="flex-1">
-                        <span 
-                          className="text-[#333]" 
-                          style={{ 
+                        <span
+                          className="text-[#333]"
+                          style={{
                             fontFamily: 'Open Sans, sans-serif',
                             fontWeight: 400,
                             fontSize: '20px',
@@ -738,9 +867,9 @@ const SearchPanel = ({ onSearch }) => {
                           <div className="flex-1">
                             <div className={`p-4 ${selectedFunnel === 1 ? 'bg-white' : 'bg-[#ECEEFF]'}`}>
                               <div className="flex items-center justify-center">
-                                <span 
-                                  className="text-[#333]" 
-                                  style={{ 
+                                <span
+                                  className="text-[#333]"
+                                  style={{
                                     fontFamily: 'Open Sans, sans-serif',
                                     fontWeight: 400,
                                     fontSize: '18px',
@@ -754,12 +883,11 @@ const SearchPanel = ({ onSearch }) => {
                             </div>
 
                             {/* Question section below FUNNEL-1 */}
-                            <div 
-                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${
-                                selectedFunnel === 1 
-                                  ? 'bg-white border-b-2 border-blue-500' 
+                            <div
+                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${selectedFunnel === 1
+                                  ? 'bg-white border-b-2 border-blue-500'
                                   : 'bg-[#F5F5F5] hover:bg-gray-200'
-                              }`}
+                                }`}
                               onClick={() => handleFunnelSelect(1)}
                             >
                               <div className="flex items-center">
@@ -774,27 +902,27 @@ const SearchPanel = ({ onSearch }) => {
                                   />
                                   <div
                                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                      ${selectedFunnel === 1 
-                                        ? 'border-[#015AB8] bg-white' 
+                                      ${selectedFunnel === 1
+                                        ? 'border-[#015AB8] bg-white'
                                         : 'border-gray-400 bg-white hover:border-gray-500'
                                       }`}
                                   >
                                     <div className={`w-2.5 h-2.5 rounded-full
-                                      ${selectedFunnel === 1 
-                                        ? 'bg-[#015AB8]' 
+                                      ${selectedFunnel === 1
+                                        ? 'bg-[#015AB8]'
                                         : 'bg-gray-400'
                                       }`}>
                                     </div>
                                   </div>
                                 </div>
                                 <p className="text-[#333]"
-                                   style={{
-                                     fontFamily: 'Open Sans, sans-serif',
-                                     fontWeight: 400,
-                                     fontSize: '18px',
-                                     lineHeight: '114.99999999999999%',
-                                     letterSpacing: '1%'
-                                   }}>
+                                  style={{
+                                    fontFamily: 'Open Sans, sans-serif',
+                                    fontWeight: 400,
+                                    fontSize: '18px',
+                                    lineHeight: '114.99999999999999%',
+                                    letterSpacing: '1%'
+                                  }}>
                                   If you would like more information about system partner placements and services, select Funnel 1
                                 </p>
                               </div>
@@ -805,9 +933,9 @@ const SearchPanel = ({ onSearch }) => {
                           <div className="flex-1">
                             <div className={`p-4 ${selectedFunnel === 2 ? 'bg-white' : 'bg-[#ECEEFF]'}`}>
                               <div className="flex items-center justify-center">
-                                <span 
-                                  className="text-[#333]" 
-                                  style={{ 
+                                <span
+                                  className="text-[#333]"
+                                  style={{
                                     fontFamily: 'Open Sans, sans-serif',
                                     fontWeight: 400,
                                     fontSize: '18px',
@@ -821,12 +949,11 @@ const SearchPanel = ({ onSearch }) => {
                             </div>
 
                             {/* Question section below FUNNEL-2 */}
-                            <div 
-                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${
-                                selectedFunnel === 2 
-                                  ? 'bg-white border-b-2 border-blue-500' 
+                            <div
+                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${selectedFunnel === 2
+                                  ? 'bg-white border-b-2 border-blue-500'
                                   : 'bg-[#F5F5F5] hover:bg-gray-200'
-                              }`}
+                                }`}
                               onClick={() => handleFunnelSelect(2)}
                             >
                               <div className="flex items-center">
@@ -841,27 +968,27 @@ const SearchPanel = ({ onSearch }) => {
                                   />
                                   <div
                                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                      ${selectedFunnel === 2 
-                                        ? 'border-[#015AB8] bg-white' 
+                                      ${selectedFunnel === 2
+                                        ? 'border-[#015AB8] bg-white'
                                         : 'border-gray-400 bg-white hover:border-gray-500'
                                       }`}
                                   >
                                     <div className={`w-2.5 h-2.5 rounded-full
-                                      ${selectedFunnel === 2 
-                                        ? 'bg-[#015AB8]' 
+                                      ${selectedFunnel === 2
+                                        ? 'bg-[#015AB8]'
                                         : 'bg-gray-400'
                                       }`}>
                                     </div>
                                   </div>
                                 </div>
                                 <p className="text-[#333]"
-                                   style={{
-                                     fontFamily: 'Open Sans, sans-serif',
-                                     fontWeight: 400,
-                                     fontSize: '18px',
-                                     lineHeight: '114.99999999999999%',
-                                     letterSpacing: '1%'
-                                   }}>
+                                  style={{
+                                    fontFamily: 'Open Sans, sans-serif',
+                                    fontWeight: 400,
+                                    fontSize: '18px',
+                                    lineHeight: '114.99999999999999%',
+                                    letterSpacing: '1%'
+                                  }}>
                                   If you would like child-specific resources, select Funnel 2
                                 </p>
                               </div>
@@ -875,24 +1002,23 @@ const SearchPanel = ({ onSearch }) => {
                             {/* Question 1 for Funnel 1 */}
                             <div className="mb-6">
                               <p className="text-[#333] mb-4 font-medium"
-                                 style={{
-                                   fontFamily: 'Open Sans, sans-serif',
-                                   fontWeight: 400,
-                                   fontSize: '16px',
-                                   lineHeight: '114.99999999999999%',
-                                   letterSpacing: '1%'
-                                 }}>
+                                style={{
+                                  fontFamily: 'Open Sans, sans-serif',
+                                  fontWeight: 400,
+                                  fontSize: '16px',
+                                  lineHeight: '114.99999999999999%',
+                                  letterSpacing: '1%'
+                                }}>
                                 1. If you would like more information about system partner placements and services, please identify which system and which resource you would like to learn more about.
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {["Child welfare services (CWS)", "Behavioral health (BH)", "Regional Center", "Probation", "Education"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${
-                                      decisionTreeAnswers[4] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[4] === option
                                         ? 'bg-[#015AB8] text-white border-[#015AB8]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#015AB8]'
-                                    }`}
+                                      }`}
                                     style={{
                                       fontFamily: 'Open Sans, sans-serif',
                                       fontWeight: 400,
@@ -914,24 +1040,23 @@ const SearchPanel = ({ onSearch }) => {
                             {/* Question 2 for Funnel 1 - Always visible */}
                             <div className="mb-6">
                               <p className="text-[#333] mb-4 font-medium"
-                                 style={{
-                                   fontFamily: 'Open Sans, sans-serif',
-                                   fontWeight: 400,
-                                   fontSize: '16px',
-                                   lineHeight: '114.99999999999999%',
-                                   letterSpacing: '1%'
-                                 }}>
+                                style={{
+                                  fontFamily: 'Open Sans, sans-serif',
+                                  fontWeight: 400,
+                                  fontSize: '16px',
+                                  lineHeight: '114.99999999999999%',
+                                  letterSpacing: '1%'
+                                }}>
                                 2. Would you like to know more about services and/or supports from the systems selected?
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {["Services", "Placement options", "Both"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${
-                                      decisionTreeAnswers[4.1] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[4.1] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
-                                    }`}
+                                      }`}
                                     style={{
                                       fontFamily: 'Open Sans, sans-serif',
                                       fontWeight: 400,
@@ -955,24 +1080,23 @@ const SearchPanel = ({ onSearch }) => {
                             {/* Question 1 for Funnel 2 */}
                             <div className="mb-6">
                               <p className="text-[#333] mb-4 font-medium"
-                                 style={{
-                                   fontFamily: 'Open Sans, sans-serif',
-                                   fontWeight: 400,
-                                   fontSize: '16px',
-                                   lineHeight: '114.99999999999999%',
-                                   letterSpacing: '1%'
-                                 }}>
+                                style={{
+                                  fontFamily: 'Open Sans, sans-serif',
+                                  fontWeight: 400,
+                                  fontSize: '16px',
+                                  lineHeight: '114.99999999999999%',
+                                  letterSpacing: '1%'
+                                }}>
                                 1. If you would like child-specific resources, please select from the following resource choices.
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {["Services", "Placement Options", "Both"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${
-                                      decisionTreeAnswers[3] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[3] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
-                                    }`}
+                                      }`}
                                     style={{
                                       fontFamily: 'Open Sans, sans-serif',
                                       fontWeight: 400,
@@ -994,24 +1118,23 @@ const SearchPanel = ({ onSearch }) => {
                             {/* Question 2 for Funnel 2 */}
                             <div className="mb-6">
                               <p className="text-[#333] mb-4 font-medium"
-                                 style={{
-                                   fontFamily: 'Open Sans, sans-serif',
-                                   fontWeight: 400,
-                                   fontSize: '16px',
-                                   lineHeight: '114.99999999999999%',
-                                   letterSpacing: '1%'
-                                 }}>
+                                style={{
+                                  fontFamily: 'Open Sans, sans-serif',
+                                  fontWeight: 400,
+                                  fontSize: '16px',
+                                  lineHeight: '114.99999999999999%',
+                                  letterSpacing: '1%'
+                                }}>
                                 2. What systems already serve the youth? Select all that apply.
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {["Services", "Placement options", "Both"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${
-                                      decisionTreeAnswers[3.1] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[3.1] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
-                                    }`}
+                                      }`}
                                     style={{
                                       fontFamily: 'Open Sans, sans-serif',
                                       fontWeight: 400,
@@ -1033,19 +1156,19 @@ const SearchPanel = ({ onSearch }) => {
                             {/* Question 3 for Funnel 2 */}
                             <div className="mb-6">
                               <p className="text-[#333] mb-4 font-medium"
-                                 style={{
-                                   fontFamily: 'Open Sans, sans-serif',
-                                   fontWeight: 400,
-                                   fontSize: '16px',
-                                   lineHeight: '114.99999999999999%',
-                                   letterSpacing: '1%'
-                                 }}>
+                                style={{
+                                  fontFamily: 'Open Sans, sans-serif',
+                                  fontWeight: 400,
+                                  fontSize: '16px',
+                                  lineHeight: '114.99999999999999%',
+                                  letterSpacing: '1%'
+                                }}>
                                 3. What complex needs or issues does the youth have? Select all that apply.
                               </p>
-                              
+
                               {/* Radio button options */}
                               <div className="flex flex-wrap gap-4 mb-4">
-                                {["Developmental needs", "Education needs", "Substance use disorder(s)", "Child Trafficking", "Education needs", "Other"].map((option, index) => (
+                                {["Developmental needs", "Behavioral health needs", "Education needs", "Substance use disorder(s)", "Child Trafficking", "Placement disruption", "Others"].map((option, index) => (
                                   <div key={index} className="flex items-center">
                                     <div className="relative mr-2">
                                       <input
@@ -1062,15 +1185,15 @@ const SearchPanel = ({ onSearch }) => {
                                       />
                                       <div
                                         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                          ${decisionTreeAnswers[3.2] === option 
-                                            ? 'border-[#D14B3A] bg-white' 
+                                          ${decisionTreeAnswers[3.2] === option
+                                            ? 'border-[#D14B3A] bg-white'
                                             : 'border-gray-400 bg-white hover:border-gray-500'
                                           }`}
                                         onClick={() => handleAnswerSelect(3.2, option)}
                                       >
                                         <div className={`w-2.5 h-2.5 rounded-full
-                                          ${decisionTreeAnswers[3.2] === option 
-                                            ? 'bg-[#D14B3A]' 
+                                          ${decisionTreeAnswers[3.2] === option
+                                            ? 'bg-[#D14B3A]'
                                             : 'bg-gray-400'
                                           }`}>
                                         </div>
@@ -1093,32 +1216,105 @@ const SearchPanel = ({ onSearch }) => {
                                   </div>
                                 ))}
                               </div>
-                              
-                              {/* Greyed out extended options section */}
-                              <div className="bg-gray-100 p-4 rounded-lg border border-gray-200">
-                                <div className="flex flex-wrap gap-2">
-                                  {["Absent from care", "Assessment/Evaluation", "Career guidance", "Chronic absenteeism", "Developmental needs diagnosis", "Dual jurisdiction youth CW and Probation", "Family Connection", "Family Criminality", "Gang affiliation/membership", "High-risk sexual behavior", "Homelessness", "Hospitalization", "IEP / 504", "Independent living skills", "In-Patient", "Learning disabilities", "LGBTQIA+", "Mental Health Crisis", "Missing", "Physically Assaultive", "Suicidal / Self Harm", "Suspension / Expulsion", "Teaming", "Threatening Physical Violence", "Truancy", "Victim Awareness", "Vocational Training"].map((option, index) => (
-                                    <button
-                                      key={`extended-${index}`}
-                                      className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm cursor-pointer ${
-                                        decisionTreeAnswers[`3.2.${index}`] === option
-                                          ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
-                                          : 'bg-gray-200 text-gray-600 border-gray-300 hover:border-gray-400'
-                                      }`}
-                                      style={{
-                                        fontFamily: 'Open Sans, sans-serif',
-                                        fontWeight: 400,
-                                        fontSize: '12px',
-                                        lineHeight: '114.99999999999999%',
-                                        letterSpacing: '1%'
-                                      }}
-                                      onClick={() => handleAnswerSelect(`3.2.${index}`, option)}
-                                    >
-                                      {option}
-                                    </button>
-                                  ))}
+
+                              {/* Sub-options for specific categories */}
+                              {decisionTreeAnswers[3.2] === "Substance use disorder(s)" && (
+                                <div className="mb-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    {["SUD", "Substance", "Drug", "MAT", "Medication Assisted Treatment"].map((subOption, subIndex) => (
+                                      <button
+                                        key={`sub-sud-${subIndex}`}
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.sud.${subIndex}`] === subOption
+                                            ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
+                                            : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
+                                          }`}
+                                        style={{
+                                          fontFamily: 'Open Sans, sans-serif',
+                                          fontWeight: 400,
+                                          fontSize: '12px'
+                                        }}
+                                        onClick={() => handleAnswerSelect(`3.2.sud.${subIndex}`, subOption)}
+                                      >
+                                        {subOption}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
+
+                              {decisionTreeAnswers[3.2] === "Child Trafficking" && (
+                                <div className="mb-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    {["Exploitation", "CSEC", "Commercial Sexual Exploitation of Children", "Trafficking"].map((subOption, subIndex) => (
+                                      <button
+                                        key={`sub-trafficking-${subIndex}`}
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.trafficking.${subIndex}`] === subOption
+                                            ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
+                                            : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
+                                          }`}
+                                        style={{
+                                          fontFamily: 'Open Sans, sans-serif',
+                                          fontWeight: 400,
+                                          fontSize: '12px'
+                                        }}
+                                        onClick={() => handleAnswerSelect(`3.2.trafficking.${subIndex}`, subOption)}
+                                      >
+                                        {subOption}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {decisionTreeAnswers[3.2] === "Placement disruption" && (
+                                <div className="mb-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    {["Placement", "Disruption", "Stabilization", "Permanency", "Crisis"].map((subOption, subIndex) => (
+                                      <button
+                                        key={`sub-placement-${subIndex}`}
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.placement.${subIndex}`] === subOption
+                                            ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
+                                            : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
+                                          }`}
+                                        style={{
+                                          fontFamily: 'Open Sans, sans-serif',
+                                          fontWeight: 400,
+                                          fontSize: '12px'
+                                        }}
+                                        onClick={() => handleAnswerSelect(`3.2.placement.${subIndex}`, subOption)}
+                                      >
+                                        {subOption}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {decisionTreeAnswers[3.2] === "Others" && (
+                                <div className="mb-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    {["Absent from care", "Assessment/Evaluation", "Career guidance", "Chronic absenteeism", "Developmental needs diagnosis", "Dual jurisdiction youth CW and Probation", "Family Connection", "Family Criminality", "Gang affiliation/membership", "High-risk sexual behavior", "Homelessness", "Hospitalization", "IEP / 504", "Independent living skills", "In-Patient", "Learning disabilities", "LGBTQIA+", "Mental Health Crisis", "Missing", "Physically Assaultive", "Suicidal / Self Harm", "Suspension / Expulsion", "Teaming", "Threatening Physical Violence", "Truancy", "Victim Awareness", "Vocational Training"].map((option, index) => (
+                                      <button
+                                        key={`extended-${index}`}
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.${index}`] === option
+                                            ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
+                                            : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
+                                          }`}
+                                        style={{
+                                          fontFamily: 'Open Sans, sans-serif',
+                                          fontWeight: 400,
+                                          fontSize: '12px',
+                                          lineHeight: '114.99999999999999%',
+                                          letterSpacing: '1%'
+                                        }}
+                                        onClick={() => handleAnswerSelect(`3.2.${index}`, option)}
+                                      >
+                                        {option}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1158,16 +1354,16 @@ const SearchPanel = ({ onSearch }) => {
       {/* Filters */}
       <div className="md:w-[80%] bg-[#f6f8ff] rounded-xl p-4 shadow flex flex-col gap-3 sm:w-full">
         {/* Dropdowns - remove Age dropdown */}
-        
-        
+
+
         {/* Search Bar */}
         <div className={`flex items-center rounded-lg px-4 py-4 bg-white transition-all duration-150
           ${isActive ? "border-[#005CB9]" : "border-[#B7B9EA]"}
         `}
-        style={{
-          borderWidth: "1px",
-          borderStyle: "solid",
-        }}>
+          style={{
+            borderWidth: "1px",
+            borderStyle: "solid",
+          }}>
           <FaSearch className="text-gray-400 mr-2" />
           <input
             ref={searchInputRef}
@@ -1182,7 +1378,7 @@ const SearchPanel = ({ onSearch }) => {
             onBlur={() => setIsActive(false)}
           />
           {searchInput && (
-            <button onClick={clearSearch} className="cursor-pointer">
+            <button onClick={clearSearch}>
               <IoMdClose className="text-gray-400 text-lg" />
             </button>
           )}
@@ -1195,7 +1391,7 @@ const SearchPanel = ({ onSearch }) => {
               key={chip}
               style={buttonTextStyle}
               onClick={() => handleFilterSelect(idx)}
-              className={`px-3 py-2 rounded-xl border-2 font-medium whitespace-nowrap transition-colors duration-150 cursor-pointer
+              className={`px-3 py-2 rounded-xl border-2 font-medium whitespace-nowrap transition-colors duration-150
                 ${idx === selectedFilter
                   ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                   : 'bg-white text-[#222] border-[#E8ECFF] hover:bg-white hover:border-gray-300'
@@ -1212,7 +1408,7 @@ const SearchPanel = ({ onSearch }) => {
         {/* Save My Preference Button - Left */}
         <button
           onClick={handleSavePreferenceToggle}
-          className="flex items-center gap-2 px-4 py-2 text-sm transition-colors duration-150 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 text-sm transition-colors duration-150"
           style={{
             fontFamily: 'Open Sans, sans-serif',
             fontWeight: 400,
@@ -1225,8 +1421,8 @@ const SearchPanel = ({ onSearch }) => {
           }}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1.09375" y="1.09082" width="21.8182" height="21.8182" fill={isPreferenceSaved ? "#015AB8" : "#E2E4FB"}/>
-            <path d="M1.37791 0.000125028C0.674643 -0.00799572 0.0144335 0.380148 0 0.968127V23.0229C0.0726698 23.8001 0.754016 23.9573 1.37791 23.9996H22.6308C23.2268 24.0144 23.9654 23.6211 24 23.0229V0.968127C23.8072 0.19924 23.2704 0.0328173 22.6308 0.000125028H1.37791ZM1.67442 1.67451H22.3256V22.3252H1.67442V1.67451ZM17.939 6.69765L9.62791 14.9649L6.06105 11.4156L4.88372 12.5929C6.46379 14.1639 8.05231 15.7265 9.62791 17.3021C12.787 14.1531 15.9529 11.0109 19.1163 7.86623L17.939 6.69765Z" fill={isPreferenceSaved ? "#FFFFFF" : "#015AB8"}/>
+            <rect x="1.09375" y="1.09082" width="21.8182" height="21.8182" fill={isPreferenceSaved ? "#015AB8" : "#E2E4FB"} />
+            <path d="M1.37791 0.000125028C0.674643 -0.00799572 0.0144335 0.380148 0 0.968127V23.0229C0.0726698 23.8001 0.754016 23.9573 1.37791 23.9996H22.6308C23.2268 24.0144 23.9654 23.6211 24 23.0229V0.968127C23.8072 0.19924 23.2704 0.0328173 22.6308 0.000125028H1.37791ZM1.67442 1.67451H22.3256V22.3252H1.67442V1.67451ZM17.939 6.69765L9.62791 14.9649L6.06105 11.4156L4.88372 12.5929C6.46379 14.1639 8.05231 15.7265 9.62791 17.3021C12.787 14.1531 15.9529 11.0109 19.1163 7.86623L17.939 6.69765Z" fill={isPreferenceSaved ? "#FFFFFF" : "#015AB8"} />
           </svg>
           Save My Preference
         </button>
@@ -1235,7 +1431,7 @@ const SearchPanel = ({ onSearch }) => {
         <button
           onClick={clearAll}
           style={buttonTextStyle}
-          className="bg-[#3eb6e0] text-white px-4 py-2 rounded-xl text-sm cursor-pointer hover:opacity-90 transition-opacity"
+          className="bg-[#3eb6e0] text-white px-4 py-2 rounded-xl text-sm"
         >
           Clear All
         </button>

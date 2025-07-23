@@ -209,13 +209,10 @@ const ResourceListing = ({ services = [] }) => {
 
   return (
     <div
-      className="flex flex-col flex-1 bg-white rounded-xl border border-[#bfc6ea] p-0  scroll w-full"
+      className="flex flex-col flex-1 bg-white rounded-xl border border-[#bfc6ea] p-0 scroll w-full max-w-screen-xl mx-auto"
       style={{
-        // Remove fixed height and scrolling for natural expansion
-        // height: "75vh",
-        // minHeight: "500px",
-        // maxHeight: "80vh",
-        // overflowY: "auto"
+        maxWidth: "1530px",
+        margin: "0 auto",
       }}
     >
       {/* Sticky header with title and print button */}
@@ -471,7 +468,7 @@ const ResourceListing = ({ services = [] }) => {
                           <button
                             type="button"
                             className="w-8 h-8 flex items-center justify-center bg-[#faa9a0] rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                            title="Remove"
+                            title="Collapse"
                             onClick={e => {
                               e.stopPropagation();
                               setSelectedIdx(null);
@@ -488,7 +485,7 @@ const ResourceListing = ({ services = [] }) => {
                           <button
                             type="button"
                             className="w-8 h-8 flex items-center justify-center bg-[#eaf8fe] rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                            title="Add"
+                            title="Expand"
                             onClick={e => {
                               e.stopPropagation();
                               setSelectedIdx(idx);
