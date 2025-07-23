@@ -166,11 +166,11 @@ const SearchPanel = ({ onSearch }) => {
   const searchInputRef = useRef();
 
   // Decision Tree state
-  const [decisionTreeOpen, setDecisionTreeOpen] = useState(false);
+  const [decisionTreeOpen, setDecisionTreeOpen] = useState(true);
   const [expandedQuestions, setExpandedQuestions] = useState({});
   const [decisionTreeAnswers, setDecisionTreeAnswers] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState({});
-  const [selectedFunnel, setSelectedFunnel] = useState(null); // Add state for funnel selection
+  const [expandedCategories, setExpandedCategories] = useState({FUNNEL:true});
+  const [selectedFunnel, setSelectedFunnel] = useState(2); // Add state for funnel selection
 
   // Dialog state for "Other" option
   const [showOtherDialog, setShowOtherDialog] = useState(false);
@@ -747,42 +747,45 @@ const SearchPanel = ({ onSearch }) => {
 
                               {/* Options - Only show when question is expanded */}
                               {expandedQuestions[question.id] && (
-                                <div className="mt-4">
-                                  <div className="flex flex-wrap gap-4">
-                                    {question.options.map((option, optionIndex) => (
+                              <div className="mt-4">
+                                <div className="flex flex-wrap gap-4">
+                                  {question.options.map((option, optionIndex) => {
+                                    const isSelected =
+                                      option === "Other"
+                                        ? typeof decisionTreeAnswers[question.id] === "string" &&
+                                          decisionTreeAnswers[question.id].startsWith("Other: ")
+                                        : decisionTreeAnswers[question.id] === option;
+
+                                    return (
                                       <div key={optionIndex} className="flex items-center">
-                                        <div className="relative mr-2">
-                                          <input
-                                            type="radio"
-                                            id={`q${question.id}-option${optionIndex}`}
-                                            name={`question-${question.id}`}
-                                            checked={decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other')}
-                                            onChange={(e) => {
-                                              if (e.target.checked) {
-                                                handleAnswerSelect(question.id, option);
-                                              }
-                                            }}
-                                            className="sr-only"
-                                          />
-                                          <div
-                                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                              ${(decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other'))
-                                                ? 'border-[#D14B3A] bg-white'
-                                                : 'border-gray-400 bg-white hover:border-gray-500'
-                                              }`}
-                                            onClick={() => handleAnswerSelect(question.id, option)}
-                                          >
-                                            <div className={`w-2.5 h-2.5 rounded-full
-                                              ${(decisionTreeAnswers[question.id] === option || (typeof decisionTreeAnswers[question.id] === 'string' && decisionTreeAnswers[question.id].startsWith('Other: ') && option === 'Other'))
-                                                ? 'bg-[#D14B3A]'
-                                                : 'bg-gray-400'
-                                              }`}>
-                                            </div>
-                                          </div>
+                                        {/* Hidden radio for accessibility */}
+                                        <input
+                                          type="radio"
+                                          id={`q${question.id}-option${optionIndex}`}
+                                          name={`question-${question.id}`}
+                                          checked={isSelected}
+                                          onChange={() => handleAnswerSelect(question.id, option)}
+                                          className="sr-only"
+                                        />
+
+                                        {/* Custom styled radio */}
+                                        <div
+                                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
+                                            ${isSelected ? 'border-[#D14B3A]' : 'border-gray-400 hover:border-gray-500'}`}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            handleAnswerSelect(question.id, option);
+                                          }}
+                                        >
+                                          {isSelected && (
+                                            <div className="w-2.5 h-2.5 bg-[#D14B3A] rounded-full"></div>
+                                          )}
                                         </div>
+
+                                        {/* Label */}
                                         <label
                                           htmlFor={`q${question.id}-option${optionIndex}`}
-                                          className="text-[#333] cursor-pointer mr-2"
+                                          className="ml-2 text-[#333] cursor-pointer"
                                           style={{
                                             fontFamily: 'Open Sans, sans-serif',
                                             fontWeight: 400,
@@ -790,12 +793,15 @@ const SearchPanel = ({ onSearch }) => {
                                             lineHeight: '114.99999999999999%',
                                             letterSpacing: '1%'
                                           }}
-                                          onClick={() => handleAnswerSelect(question.id, option)}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            handleAnswerSelect(question.id, option);
+                                          }}
                                         >
                                           {option}
                                         </label>
-                                        
-                                        {/* Inline input for "Other" option */}
+
+                                        {/* Inline input for "Other" */}
                                         {option === "Other" && currentQuestionId === question.id && (
                                           <input
                                             type="text"
@@ -821,10 +827,11 @@ const SearchPanel = ({ onSearch }) => {
                                           />
                                         )}
                                       </div>
-                                    ))}
-                                  </div>
+                                    );
+                                  })}
                                 </div>
-                              )}
+                              </div>
+                            )}
                             </div>
                           ))}
                       </div>
@@ -883,48 +890,50 @@ const SearchPanel = ({ onSearch }) => {
                             </div>
 
                             {/* Question section below FUNNEL-1 */}
-                            <div
-                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${selectedFunnel === 1
-                                  ? 'bg-white border-b-2 border-blue-500'
+                            <div 
+                              className={`p-4 transition-all duration-200 min-h-[120px] flex items-center mt-2 rounded cursor-pointer ${
+                                selectedFunnel === 1 
+                                  ? 'bg-white border-b-2 border-[#015AB8]' 
                                   : 'bg-[#F5F5F5] hover:bg-gray-200'
-                                }`}
+                              }`}
                               onClick={() => handleFunnelSelect(1)}
                             >
                               <div className="flex items-center">
-                                <div className="relative mr-3">
-                                  <input
-                                    type="radio"
-                                    id="funnel-1"
-                                    name="funnel-selection"
-                                    checked={selectedFunnel === 1}
-                                    onChange={() => handleFunnelSelect(1)}
-                                    className="sr-only"
-                                  />
-                                  <div
-                                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                      ${selectedFunnel === 1
-                                        ? 'border-[#015AB8] bg-white'
-                                        : 'border-gray-400 bg-white hover:border-gray-500'
-                                      }`}
-                                  >
-                                    <div className={`w-2.5 h-2.5 rounded-full
-                                      ${selectedFunnel === 1
-                                        ? 'bg-[#015AB8]'
-                                        : 'bg-gray-400'
-                                      }`}>
-                                    </div>
-                                  </div>
+                                {/* Visually hidden native input for accessibility */}
+                                <input
+                                  type="radio"
+                                  id="funnel-1"
+                                  name="funnel-selection"
+                                  checked={selectedFunnel === 1}
+                                  onChange={() => handleFunnelSelect(1)}
+                                  className="sr-only"
+                                />
+
+                                {/* Custom radio circle */}
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150 mr-3 shrink-0
+                                    ${selectedFunnel === 1 ? 'border-[#015AB8]' : 'border-gray-400'}`}
+                                >
+                                  {selectedFunnel === 1 && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#015AB8]" />
+                                  )}
                                 </div>
-                                <p className="text-[#333]"
+
+
+                                {/* Label text */}
+                                <label
+                                  htmlFor="funnel-1"
+                                  className="text-[#333] cursor-pointer"
                                   style={{
                                     fontFamily: 'Open Sans, sans-serif',
                                     fontWeight: 400,
                                     fontSize: '18px',
-                                    lineHeight: '114.99999999999999%',
+                                    lineHeight: '115%',
                                     letterSpacing: '1%'
-                                  }}>
+                                  }}
+                                >
                                   If you would like more information about system partner placements and services, select Funnel 1
-                                </p>
+                                </label>
                               </div>
                             </div>
                           </div>
@@ -949,48 +958,49 @@ const SearchPanel = ({ onSearch }) => {
                             </div>
 
                             {/* Question section below FUNNEL-2 */}
-                            <div
-                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${selectedFunnel === 2
-                                  ? 'bg-white border-b-2 border-blue-500'
+                            <div 
+                              className={`p-4 cursor-pointer transition-all duration-200 min-h-[120px] flex items-center mt-2 ${
+                                selectedFunnel === 2 
+                                  ? 'bg-white border-b-2 border-blue-500' 
                                   : 'bg-[#F5F5F5] hover:bg-gray-200'
-                                }`}
+                              }`}
                               onClick={() => handleFunnelSelect(2)}
                             >
                               <div className="flex items-center">
-                                <div className="relative mr-3">
-                                  <input
-                                    type="radio"
-                                    id="funnel-2"
-                                    name="funnel-selection"
-                                    checked={selectedFunnel === 2}
-                                    onChange={() => handleFunnelSelect(2)}
-                                    className="sr-only"
-                                  />
-                                  <div
-                                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                      ${selectedFunnel === 2
-                                        ? 'border-[#015AB8] bg-white'
-                                        : 'border-gray-400 bg-white hover:border-gray-500'
-                                      }`}
-                                  >
-                                    <div className={`w-2.5 h-2.5 rounded-full
-                                      ${selectedFunnel === 2
-                                        ? 'bg-[#015AB8]'
-                                        : 'bg-gray-400'
-                                      }`}>
-                                    </div>
-                                  </div>
+                                {/* Hidden native input */}
+                                <input
+                                  type="radio"
+                                  id="funnel-2"
+                                  name="funnel-selection"
+                                  checked={selectedFunnel === 2}
+                                  onChange={() => handleFunnelSelect(2)}
+                                  className="sr-only"
+                                />
+
+                                {/* Custom radio button */}
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-150 cursor-pointer mr-3 shrink-0
+                                    ${selectedFunnel === 2 ? 'border-[#015AB8]' : 'border-gray-400'}`}
+                                >
+                                  {selectedFunnel === 2 && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#015AB8]" />
+                                  )}
                                 </div>
-                                <p className="text-[#333]"
+
+                                {/* Label */}
+                                <label
+                                  htmlFor="funnel-2"
+                                  className="text-[#333] cursor-pointer"
                                   style={{
                                     fontFamily: 'Open Sans, sans-serif',
                                     fontWeight: 400,
                                     fontSize: '18px',
-                                    lineHeight: '114.99999999999999%',
+                                    lineHeight: '115%',
                                     letterSpacing: '1%'
-                                  }}>
+                                  }}
+                                >
                                   If you would like child-specific resources, select Funnel 2
-                                </p>
+                                </label>
                               </div>
                             </div>
                           </div>
@@ -1001,21 +1011,38 @@ const SearchPanel = ({ onSearch }) => {
                           <div className="mt-4 bg-white p-6 border border-gray-200 w-full">
                             {/* Question 1 for Funnel 1 */}
                             <div className="mb-6">
-                              <p className="text-[#333] mb-4 font-medium"
-                                style={{
-                                  fontFamily: 'Open Sans, sans-serif',
-                                  fontWeight: 400,
-                                  fontSize: '16px',
-                                  lineHeight: '114.99999999999999%',
-                                  letterSpacing: '1%'
-                                }}>
-                                1. If you would like more information about system partner placements and services, please identify which system and which resource you would like to learn more about.
-                              </p>
+                              <div className="flex items-start gap-2 mb-4">
+                                <span
+                                  className="text-[#333] font-medium"
+                                  style={{
+                                    fontFamily: 'Open Sans, sans-serif',
+                                    fontWeight: 400,
+                                    fontSize: '16px',
+                                    lineHeight: '115%',
+                                    letterSpacing: '1%',
+                                  }}
+                                >
+                                  1.
+                                </span>
+                                <p
+                                  className="text-[#333] font-medium"
+                                  style={{
+                                    fontFamily: 'Open Sans, sans-serif',
+                                    fontWeight: 400,
+                                    fontSize: '16px',
+                                    lineHeight: '115%',
+                                    letterSpacing: '1%',
+                                  }}
+                                >
+                                  If you would like more information about system partner placements and services, please identify
+                                  which system and which resource you would like to learn more about.
+                                </p>
+                              </div>
                               <div className="flex flex-wrap gap-2">
                                 {["Child welfare services (CWS)", "Behavioral health (BH)", "Regional Center", "Probation", "Education"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[4] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${decisionTreeAnswers[4] === option
                                         ? 'bg-[#015AB8] text-white border-[#015AB8]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#015AB8]'
                                       }`}
@@ -1053,7 +1080,7 @@ const SearchPanel = ({ onSearch }) => {
                                 {["Services", "Placement options", "Both"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[4.1] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${decisionTreeAnswers[4.1] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                       }`}
@@ -1093,7 +1120,7 @@ const SearchPanel = ({ onSearch }) => {
                                 {["Services", "Placement Options", "Both"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[3] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${decisionTreeAnswers[3] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                       }`}
@@ -1128,10 +1155,10 @@ const SearchPanel = ({ onSearch }) => {
                                 2. What systems already serve the youth? Select all that apply.
                               </p>
                               <div className="flex flex-wrap gap-2">
-                                {["Services", "Placement options", "Both"].map((option, index) => (
+                                {["CWS", "BH", "Regional Center", "Probation", "Education"].map((option, index) => (
                                   <button
                                     key={index}
-                                    className={`px-4 py-2 rounded-full border transition-all duration-150 ${decisionTreeAnswers[3.1] === option
+                                    className={`px-4 py-2 rounded-full border transition-all duration-150 cursor-pointer ${decisionTreeAnswers[3.1] === option
                                         ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                         : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                       }`}
@@ -1170,35 +1197,35 @@ const SearchPanel = ({ onSearch }) => {
                               <div className="flex flex-wrap gap-4 mb-4">
                                 {["Developmental needs", "Behavioral health needs", "Education needs", "Substance use disorder(s)", "Child Trafficking", "Placement disruption", "Others"].map((option, index) => (
                                   <div key={index} className="flex items-center">
-                                    <div className="relative mr-2">
-                                      <input
-                                        type="radio"
-                                        id={`q3.2-option${index}`}
-                                        name="question-3.2"
-                                        checked={decisionTreeAnswers[3.2] === option}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            handleAnswerSelect(3.2, option);
-                                          }
-                                        }}
-                                        className="sr-only"
-                                      />
-                                      <div
-                                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150
-                                          ${decisionTreeAnswers[3.2] === option
-                                            ? 'border-[#D14B3A] bg-white'
-                                            : 'border-gray-400 bg-white hover:border-gray-500'
-                                          }`}
-                                        onClick={() => handleAnswerSelect(3.2, option)}
-                                      >
-                                        <div className={`w-2.5 h-2.5 rounded-full
-                                          ${decisionTreeAnswers[3.2] === option
-                                            ? 'bg-[#D14B3A]'
-                                            : 'bg-gray-400'
-                                          }`}>
-                                        </div>
-                                      </div>
+                                    {/* Hidden native input */}
+                                    <input
+                                      type="radio"
+                                      id={`q3.2-option${index}`}
+                                      name="question-3.2"
+                                      checked={decisionTreeAnswers[3.2] === option}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          handleAnswerSelect(3.2, option);
+                                        }
+                                      }}
+                                      className="sr-only"
+                                    />
+
+                                    {/* Custom radio button */}
+                                    <div
+                                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-150 mr-2 shrink-0
+                                        ${decisionTreeAnswers[3.2] === option 
+                                          ? 'border-[#D14B3A]' 
+                                          : 'border-gray-400 hover:border-gray-500'
+                                        }`}
+                                      onClick={() => handleAnswerSelect(3.2, option)}
+                                    >
+                                      {decisionTreeAnswers[3.2] === option && (
+                                        <div className="w-2.5 h-2.5 rounded-full bg-[#D14B3A]" />
+                                      )}
                                     </div>
+
+                                    {/* Label */}
                                     <label
                                       htmlFor={`q3.2-option${index}`}
                                       className="text-[#333] cursor-pointer"
@@ -1206,7 +1233,7 @@ const SearchPanel = ({ onSearch }) => {
                                         fontFamily: 'Open Sans, sans-serif',
                                         fontWeight: 400,
                                         fontSize: '14px',
-                                        lineHeight: '114.99999999999999%',
+                                        lineHeight: '115%',
                                         letterSpacing: '1%'
                                       }}
                                       onClick={() => handleAnswerSelect(3.2, option)}
@@ -1224,7 +1251,7 @@ const SearchPanel = ({ onSearch }) => {
                                     {["SUD", "Substance", "Drug", "MAT", "Medication Assisted Treatment"].map((subOption, subIndex) => (
                                       <button
                                         key={`sub-sud-${subIndex}`}
-                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.sud.${subIndex}`] === subOption
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 cursor-pointer text-sm ${decisionTreeAnswers[`3.2.sud.${subIndex}`] === subOption
                                             ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                             : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                           }`}
@@ -1248,7 +1275,8 @@ const SearchPanel = ({ onSearch }) => {
                                     {["Exploitation", "CSEC", "Commercial Sexual Exploitation of Children", "Trafficking"].map((subOption, subIndex) => (
                                       <button
                                         key={`sub-trafficking-${subIndex}`}
-                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.trafficking.${subIndex}`] === subOption
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm cursor-pointer ${
+                                          decisionTreeAnswers[`3.2.trafficking.${subIndex}`] === subOption
                                             ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                             : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                           }`}
@@ -1272,7 +1300,7 @@ const SearchPanel = ({ onSearch }) => {
                                     {["Placement", "Disruption", "Stabilization", "Permanency", "Crisis"].map((subOption, subIndex) => (
                                       <button
                                         key={`sub-placement-${subIndex}`}
-                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.placement.${subIndex}`] === subOption
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 cursor-pointer text-sm ${decisionTreeAnswers[`3.2.placement.${subIndex}`] === subOption
                                             ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                             : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                           }`}
@@ -1296,7 +1324,7 @@ const SearchPanel = ({ onSearch }) => {
                                     {["Absent from care", "Assessment/Evaluation", "Career guidance", "Chronic absenteeism", "Developmental needs diagnosis", "Dual jurisdiction youth CW and Probation", "Family Connection", "Family Criminality", "Gang affiliation/membership", "High-risk sexual behavior", "Homelessness", "Hospitalization", "IEP / 504", "Independent living skills", "In-Patient", "Learning disabilities", "LGBTQIA+", "Mental Health Crisis", "Missing", "Physically Assaultive", "Suicidal / Self Harm", "Suspension / Expulsion", "Teaming", "Threatening Physical Violence", "Truancy", "Victim Awareness", "Vocational Training"].map((option, index) => (
                                       <button
                                         key={`extended-${index}`}
-                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 text-sm ${decisionTreeAnswers[`3.2.${index}`] === option
+                                        className={`px-3 py-1.5 rounded-full border transition-all duration-150 cursor-pointer text-sm ${decisionTreeAnswers[`3.2.${index}`] === option
                                             ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                                             : 'bg-white text-[#333] border-gray-300 hover:border-[#D14B3A]'
                                           }`}
@@ -1391,7 +1419,7 @@ const SearchPanel = ({ onSearch }) => {
               key={chip}
               style={buttonTextStyle}
               onClick={() => handleFilterSelect(idx)}
-              className={`px-3 py-2 rounded-xl border-2 font-medium whitespace-nowrap transition-colors duration-150
+              className={`px-3 py-2 rounded-xl border-2 font-medium whitespace-nowrap transition-colors duration-150 cursor-pointer
                 ${idx === selectedFilter
                   ? 'bg-[#D14B3A] text-white border-[#D14B3A]'
                   : 'bg-white text-[#222] border-[#E8ECFF] hover:bg-white hover:border-gray-300'
